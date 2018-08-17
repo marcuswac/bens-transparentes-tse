@@ -7,31 +7,35 @@ library(stringr)
 
 options(OutDec= ",")
 
-extrai_bens_candidato <- function(url) {
+baixa_html_bens_candidato <- function(url, xpath_bens = "//*[@data-title]") {
   rs_dr <- rsDriver(verbose = FALSE, check = FALSE)
   rem_dr <- rs_dr[["client"]]
   rem_dr$navigate(url)
   
-  rem_dr$setImplicitWaitTimeout(10000)
-  rem_dr$findElement("xpath", "//*[@data-title]")
+  # Aguarda ate 30 segundos para carregar tabela (ate surgir item do xpath_bens)
+  rem_dr$setImplicitWaitTimeout(30000)
+  rem_dr$findElement("xpath", xpath_bens)
   
   page_source <- rem_dr$getPageSource()
   
   rem_dr$close()
   rem_dr$closeServer()
   
-  bens_html <- read_html(page_source[[1]])
+  return(page_source[[1]])
+}
+
+extrai_bens_candidato <- function(url) {
+  bens_html <- baixa_html_bens_candidato(url)  %>%
+    read_html()
   
-  bens_raw <- bens_html %>%
+  bens_vec <- bens_html %>%
     xml_find_all('//*[@data-title]') %>%
     html_text() %>%
     str_trim()
   
-  bens_df <- data_frame(url,
-                        bem = bens_raw[seq_along(bens_raw) %% 2 == 1],
-                        valor = bens_raw[seq_along(bens_raw) %% 2 == 0]) %>%
+  bens_df <- data_frame(url, bem = bens_vec[seq_along(bens_vec) %% 2 == 1],
+                        valor = bens_vec[seq_along(bens_vec) %% 2 == 0]) %>%
     mutate(valor = parse_number(valor, locale = locale(decimal_mark = ",")))
-  
   
   return(bens_df)
 }
