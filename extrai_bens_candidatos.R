@@ -9,28 +9,7 @@ options(OutDec = ",")
 
 is.error <- function(x) inherits(x, "try-error")
 
-# Extrai HTML textual da URL aguardando surgir item do xpath ate timeout_ms
-extrai_pagina_dinamica <- function(url, xpath = NULL, timeout_ms = 30000) {
-  # Inicia servidor do Selenium
-  rs_dr <- rsDriver(verbose = FALSE, check = FALSE)
-  rem_dr <- rs_dr[["client"]]
-  
-  rem_dr$navigate(url)
-
-  # Aguarda surgir item do xpath ate timeout_ms
-  if (!is.null(xpath)) {
-    rem_dr$setImplicitWaitTimeout(timeout_ms)
-    rem_dr$findElement("xpath", xpath)
-  }
-  html_source <- rem_dr$getPageSource()
-  
-  rem_dr$close()
-  rem_dr$closeServer()
-  
-  return(html_source[[1]])
-}
-
-extrai_bens_candidato <- function(bens_html, xpath = "//*[@data-title]") {
+extrai_bens_candidato_de_html <- function(bens_html, xpath = "//*[@data-title]") {
   bens_vec <- bens_html %>%
     read_html() %>%
     xml_find_all(xpath) %>%
@@ -46,14 +25,6 @@ extrai_bens_candidato <- function(bens_html, xpath = "//*[@data-title]") {
   return(bens_df)
 }
 
-extrai_bens_candidato_de_url <- function(url, xpath = "//*[@data-title]") {
-  bens_html <- url %>%
-    extrai_pagina_dinamica(xpath)
-  bens_df <- extrai_bens_candidato(html, xpath)
-  return(bens_df)
-}
-
-
 extrai_bens_candidato_selenium <- function(candidato_link, selenium_client) {
   nome_candidato <- candidato_link$getElementText()[[1]]
   candidato_link$clickElement()
@@ -63,35 +34,19 @@ extrai_bens_candidato_selenium <- function(candidato_link, selenium_client) {
     lista_bens_link <- selenium_client$findElement("xpath", xpath_lista_bens)
     Sys.sleep(1) # aguarda mais 1 segundo
     lista_bens_link$clickElement()
-  })
+  }, silent = TRUE)
 
     if (!is.error(err)) {
     xpath_bens <- "//*[@data-title]"
     selenium_client$findElement("xpath", xpath_bens)
     bens_html <- selenium_client$getPageSource()[[1]]
-    bens_df <- extrai_bens_candidato(bens_html) %>%
+    bens_df <- extrai_bens_candidato_de_html(bens_html) %>%
       mutate(nome_candidato) %>%
       select(3, 1, 2)
   } else {
     bens_df <- data_frame()
   }
   return(bens_df)
-}
-
-
-extrai_candidatos_presidente <- function(url_candidatos,
-    xpath = "//*[contains(@class, 'visible-lg')]//td"
-) {
-
-  candidatos_html <- url_candidatos %>%
-    extrai_pagina_dinamica(xpath) %>%
-    read_html()
-  
-  candidatos_vec <- xml_find_all(xpath) %>%
-    html_text() %>%
-    str_trim()
-    
-  return(candidatos_vec)
 }
 
 extrai_bens_candidatos <- function(url_candidatos) {
